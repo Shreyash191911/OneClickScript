@@ -29,44 +29,76 @@ export async function createDodoPayment(customerEmail?: string): Promise<CreateP
   console.log('Amount: $2.99 USD (299 cents)')
   console.log('Customer:', email)
   
-  try {
-    // Create checkout session according to Dodo Payments API docs
-    // https://docs.dodopayments.com/api-reference/checkout-sessions/create-checkout-session
-    const response = await axios.post(
-      `${DODO_API_BASE_URL}/v1/checkout-sessions`,
-      {
-        amount: PLAN_AMOUNT,
-        currency: 'USD',
-        payment_link_id: null, // Not using a pre-created payment link
-        customer_email: email,
-        success_url: `${process.env.NEXTAUTH_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${process.env.NEXTAUTH_URL}/cancel`,
-        metadata: {
-          plan: 'unlimited_monthly',
-          product: 'OneClick Script Writer',
-          subscription_type: 'monthly'
-        }
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
+  // Try multiple possible endpoint variations
+  const endpoints = [
+    '/v1/checkout-sessions',
+    '/v1/payments',
+    '/checkout-sessions',
+    '/payments'
+  ]
+  
+  let response: any = null
+  let lastError: any = null
+  
+  for (const endpoint of endpoints) {
+    try {
+      console.log(`Trying endpoint: ${DODO_API_BASE_URL}${endpoint}`)
+      
+      response = await axios.post(
+        `${DODO_API_BASE_URL}${endpoint}`,
+        {
+          amount: PLAN_AMOUNT,
+          currency: 'USD',
+          payment_link_id: null,
+          customer_email: email,
+          success_url: `${process.env.NEXTAUTH_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.NEXTAUTH_URL}/cancel`,
+          metadata: {
+            plan: 'unlimited_monthly',
+            product: 'OneClick Script Writer',
+            subscription_type: 'monthly'
+          }
         },
-        timeout: 20000
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 20000
+        }
+      )
+      
+      // If we get here, the request succeeded
+      console.log(`✅ Success with endpoint: ${endpoint}`)
+      break
+      
+    } catch (error) {
+      console.log(`❌ Failed with endpoint: ${endpoint}`)
+      if (axios.isAxiosError(error)) {
+        console.log(`   Status: ${error.response?.status}`)
       }
-    )
-    
-    console.log('✅ Checkout session created successfully!')
-    console.log('Session ID:', response.data.id || response.data.checkout_session_id)
-    console.log('Payment URL:', response.data.payment_link)
-    
-    return {
-      paymentId: response.data.id || response.data.checkout_session_id,
-      paymentUrl: response.data.payment_link,
-      amount: PLAN_AMOUNT,
-      currency: 'USD'
+      lastError = error
+      continue
     }
+  }
+  
+  // If all endpoints failed
+  if (!response) {
+    console.error('All endpoint variations failed!')
+    throw lastError
+  }
+  
+  // Process successful response
+  console.log('✅ Checkout session created successfully!')
+  console.log('Response data:', JSON.stringify(response.data, null, 2))
+  
+  return {
+    paymentId: response.data.id || response.data.checkout_session_id || response.data.payment_id,
+    paymentUrl: response.data.payment_link || response.data.url || response.data.checkout_url,
+    amount: PLAN_AMOUNT,
+    currency: 'USD'
+  }
   } catch (error) {
     console.error('❌ Dodo Payments API Error:')
     
@@ -80,7 +112,7 @@ export async function createDodoPayment(customerEmail?: string): Promise<CreateP
       if (error.response?.status === 401) {
         throw new Error('Invalid API key. Please check your DODO_PAYMENTS_API_KEY environment variable.')
       } else if (error.response?.status === 404) {
-        throw new Error('API endpoint not found. Please verify you are using the correct Dodo Payments environment (test/live).')
+        throw new Error('API endpoint not found. Please contact Dodo Payments support for the correct API endpoint.')
       } else if (error.response?.data) {
         throw new Error(`Dodo Payments API error: ${JSON.stringify(error.response.data)}`)
       }
