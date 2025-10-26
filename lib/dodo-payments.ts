@@ -1,12 +1,25 @@
-import axios from 'axios'
+import DodoPayments from 'dodopayments'
 
-// Dodo Payments API Configuration
-// Official endpoints from https://docs.dodopayments.com/api-reference/introduction
-const DODO_API_BASE_URL = process.env.DODO_PAYMENTS_ENVIRONMENT === 'test_mode' 
-  ? 'https://test.dodopayments.com'
-  : 'https://live.dodopayments.com'
-
+// Dodo Payments SDK Configuration
+// Official SDK: https://github.com/dodopayments/dodopayments-typescript
 export const PLAN_AMOUNT = 299 // $2.99 in cents (USD)
+
+// Initialize Dodo Payments client
+function getDodoClient() {
+  const apiKey = process.env.DODO_PAYMENTS_API_KEY
+  
+  if (!apiKey) {
+    throw new Error('DODO_PAYMENTS_API_KEY is not configured')
+  }
+  
+  // SDK environment values are 'test_mode' or 'live_mode'
+  const environment = process.env.DODO_PAYMENTS_ENVIRONMENT === 'test_mode' ? 'test_mode' : 'live_mode'
+  
+  return new DodoPayments({
+    bearerToken: apiKey,
+    environment: environment as 'test_mode' | 'live_mode'
+  })
+}
 
 interface CreatePaymentResponse {
   paymentId: string
@@ -17,119 +30,98 @@ interface CreatePaymentResponse {
 
 export async function createDodoPayment(customerEmail?: string): Promise<CreatePaymentResponse> {
   try {
-    const apiKey = process.env.DODO_PAYMENTS_API_KEY
+    const client = getDodoClient()
     const email = customerEmail || 'customer@example.com'
     
-    // Validate API key
-    if (!apiKey || apiKey.length < 20) {
-      throw new Error('Invalid Dodo Payments API key. Please configure DODO_PAYMENTS_API_KEY in environment variables.')
-    }
-    
-    console.log('=== Creating Dodo Payments Checkout Session ===')
-    console.log('API Base URL:', DODO_API_BASE_URL)
+    console.log('=== Creating Dodo Payments Checkout Session (using official SDK) ===')
+    console.log('Environment:', process.env.DODO_PAYMENTS_ENVIRONMENT || 'live_mode')
     console.log('Amount: $2.99 USD (299 cents)')
     console.log('Customer:', email)
     
-    // Dodo Payments uses /api/v1/payment-intents endpoint
-    const endpoint = '/api/v1/payment-intents'
-    const fullUrl = `${DODO_API_BASE_URL}${endpoint}`
+    // NOTE: Dodo Payments SDK requires a product_id from your dashboard
+    // You need to create a product in your Dodo dashboard first
+    // For now, we'll try to create a session and show helpful error if product is missing
     
-    console.log(`Creating payment intent at: ${fullUrl}`)
+    const productId = process.env.DODO_PRODUCT_ID
     
-    const response = await axios.post(
-      fullUrl,
-      {
-        amount: PLAN_AMOUNT,
-        currency: 'usd',
-        customer_email: email,
-        return_url: `${process.env.NEXTAUTH_URL}/success`,
-        metadata: {
-          plan: 'unlimited_monthly',
-          product: 'OneClick Script Writer',
-          subscription_type: 'monthly'
+    if (!productId) {
+      throw new Error(
+        'DODO_PRODUCT_ID is not configured. Please create a product in your Dodo Payments dashboard ' +
+        'and add the product ID to your environment variables.'
+      )
+    }
+    
+    // Create checkout session using official SDK
+    // https://github.com/dodopayments/dodopayments-typescript
+    const checkoutSession = await client.checkoutSessions.create({
+      product_cart: [
+        {
+          product_id: productId,
+          quantity: 1
         }
+      ],
+      customer: {
+        email: email
       },
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        timeout: 20000
+      return_url: `${process.env.NEXTAUTH_URL}/success`,
+      metadata: {
+        plan: 'unlimited_monthly',
+        product: 'OneClick Script Writer'
       }
-    )
+    })
     
-    console.log('✅ Payment intent created successfully!')
-    console.log('Response data:', JSON.stringify(response.data, null, 2))
+    console.log('✅ Checkout session created successfully!')
+    console.log('Session ID:', checkoutSession.session_id)
+    console.log('Checkout URL:', checkoutSession.checkout_url)
     
     return {
-      paymentId: response.data.id || response.data.payment_intent_id,
-      paymentUrl: response.data.url || response.data.checkout_url || response.data.payment_url,
+      paymentId: checkoutSession.session_id,
+      paymentUrl: checkoutSession.checkout_url,
       amount: PLAN_AMOUNT,
       currency: 'USD'
     }
     
   } catch (error) {
-    console.error('❌ Dodo Payments API Error:')
+    console.error('❌ Dodo Payments SDK Error:')
+    console.error('Full error:', error)
     
-    if (axios.isAxiosError(error)) {
-      console.error('Status:', error.response?.status)
-      console.error('Status Text:', error.response?.statusText)
-      console.error('Error Data:', JSON.stringify(error.response?.data, null, 2))
-      console.error('Request URL:', error.config?.url)
-      console.error('Request Headers:', error.config?.headers)
+    // Handle SDK-specific errors
+    if (error && typeof error === 'object' && 'status' in error) {
+      const apiError = error as any
+      console.error('Status:', apiError.status)
+      console.error('Error body:', apiError.error)
       
-      // Provide helpful error messages
-      if (error.response?.status === 401) {
+      if (apiError.status === 401) {
         throw new Error('Invalid API key. Please check your DODO_PAYMENTS_API_KEY environment variable.')
-      } else if (error.response?.status === 404) {
-        throw new Error('API endpoint not found. Please verify you are using the correct Dodo Payments environment (test/live).')
-      } else if (error.response?.data) {
-        const errorMsg = typeof error.response.data === 'string' 
-          ? error.response.data 
-          : JSON.stringify(error.response.data)
-        throw new Error(`Dodo Payments API error: ${errorMsg}`)
+      } else if (apiError.status === 404) {
+        throw new Error('API endpoint not found. Please verify your Dodo Payments account is properly set up.')
+      } else if (apiError.error) {
+        throw new Error(`Dodo Payments error: ${JSON.stringify(apiError.error)}`)
       }
     }
     
-    console.error('Full error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
     throw new Error(`Failed to create Dodo payment: ${errorMessage}`)
   }
 }
 
-export async function verifyDodoPayment(sessionId: string): Promise<boolean> {
+export async function verifyDodoPayment(paymentId: string): Promise<boolean> {
   try {
-    const apiKey = process.env.DODO_PAYMENTS_API_KEY
+    const client = getDodoClient()
     
-    if (!apiKey) {
-      console.log(`Mock verification for session: ${sessionId}`)
-      return true
-    }
+    console.log(`Verifying Dodo payment: ${paymentId}`)
     
-    console.log(`Verifying Dodo payment session: ${sessionId}`)
+    // Get payment details using SDK
+    const payment = await client.payments.retrieve(paymentId)
     
-    // Get payment intent details to verify payment
-    const response = await axios.get(
-      `${DODO_API_BASE_URL}/api/v1/payment-intents/${sessionId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json'
-        }
-      }
-    )
-
-    console.log('Payment verification response:', response.data)
+    console.log('Payment verification response:', payment)
+    console.log('Payment status:', payment.status)
     
     // Check if payment was successful
-    const status = response.data.status || response.data.payment_status
-    return status === 'completed' || status === 'succeeded' || status === 'paid' || status === 'success'
+    // Valid statuses: 'succeeded' | 'failed' | 'cancelled' | 'processing' | etc.
+    return payment.status === 'succeeded'
   } catch (error) {
     console.error('Payment verification error:', error)
-    if (axios.isAxiosError(error)) {
-      console.error('Verification error details:', error.response?.data)
-    }
     return false
   }
 }
