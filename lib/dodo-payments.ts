@@ -87,7 +87,8 @@ export async function createDodoPayment(customerEmail?: string): Promise<CreateP
     }
     
     console.error('Full error:', error)
-    throw new Error(`Failed to create Dodo payment: ${error.message}`)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    throw new Error(`Failed to create Dodo payment: ${errorMessage}`)
   }
 }
 
