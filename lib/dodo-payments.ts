@@ -1,9 +1,10 @@
 import axios from 'axios'
 
 // Dodo Payments API Configuration
+// Official endpoints from https://docs.dodopayments.com/api-reference/introduction
 const DODO_API_BASE_URL = process.env.DODO_PAYMENTS_ENVIRONMENT === 'test_mode' 
-  ? 'https://api-sandbox.dodopayments.com'
-  : 'https://api.dodopayments.com'
+  ? 'https://test.dodopayments.com'
+  : 'https://live.dodopayments.com'
 
 export const PLAN_AMOUNT = 299 // $2.99 in cents (USD)
 
