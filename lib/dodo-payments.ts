@@ -15,6 +15,11 @@ function getDodoClient() {
   // SDK environment values are 'test_mode' or 'live_mode'
   const environment = process.env.DODO_PAYMENTS_ENVIRONMENT === 'test_mode' ? 'test_mode' : 'live_mode'
   
+  console.log('Initializing Dodo SDK with:')
+  console.log('- Environment:', environment)
+  console.log('- API Key prefix:', apiKey.substring(0, 10) + '...')
+  console.log('- API Key length:', apiKey.length)
+  
   return new DodoPayments({
     bearerToken: apiKey,
     environment: environment as 'test_mode' | 'live_mode'
