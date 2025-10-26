@@ -54,7 +54,7 @@ export default function DodoPayment({ onSuccess, onError }: DodoPaymentProps) {
       ) : (
         <>
           <CreditCard className="h-5 w-5" />
-          <span>Pay ₹99 with Dodo Payments</span>
+          <span>Pay $2.99 USD</span>
         </>
       )}
     </button>

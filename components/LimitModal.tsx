@@ -57,7 +57,7 @@ export default function LimitModal({ isOpen, onClose, onUpgrade, isAuthenticated
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold text-white">
-                  {isAuthenticated ? '₹99' : 'Free'}
+                  {isAuthenticated ? '$2.99' : 'Free'}
                 </div>
                 <div className="text-gray-300 text-sm">
                   {isAuthenticated ? 'per month' : 'with login'}

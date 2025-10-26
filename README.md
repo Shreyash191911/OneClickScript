@@ -8,7 +8,7 @@ An AI-powered web application that instantly turns YouTube video ideas into comp
 - **Multiple Tones**: Educational, Funny, Dramatic, Motivational
 - **Flexible Lengths**: Short (30 sec), Medium (1-3 min), Long (8-10 min)
 - **Free Tier**: 3 scripts per day for free users
-- **Subscription Model**: ₹99/month for unlimited access
+- **Subscription Model**: $2.99/month for unlimited access
 - **Modern UI**: Glassmorphism design with gradient backgrounds
 - **Copy & Download**: Easy script export functionality
 
@@ -166,7 +166,7 @@ Make sure to add these in your Vercel dashboard:
 ## 💳 Pricing
 
 - **Free**: 3 scripts per day
-- **Unlimited**: ₹99/month for unlimited access
+- **Unlimited**: $2.99/month for unlimited access
 
 ## 🔒 Security
 

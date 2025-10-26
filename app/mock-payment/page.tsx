@@ -58,7 +58,7 @@ export default function MockPaymentPage() {
                 Payment ID: <span className="font-mono text-white">{paymentId}</span>
               </p>
               <p className="text-sm text-gray-300 mt-2">
-                Amount: <span className="font-semibold text-white">₹99</span>
+                Amount: <span className="font-semibold text-white">$2.99 USD</span>
               </p>
             </div>
             <Link
